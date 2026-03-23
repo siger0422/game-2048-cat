@@ -101,16 +101,18 @@ function bindEvents() {
   boardEl.addEventListener(
     "touchstart",
     (e) => {
+      e.preventDefault();
       const t = e.changedTouches[0];
       touchStartX = t.clientX;
       touchStartY = t.clientY;
     },
-    { passive: true }
+    { passive: false }
   );
 
   boardEl.addEventListener(
     "touchend",
     (e) => {
+      e.preventDefault();
       const t = e.changedTouches[0];
       const dx = t.clientX - touchStartX;
       const dy = t.clientY - touchStartY;
@@ -128,7 +130,16 @@ function bindEvents() {
         else move("up");
       }
     },
-    { passive: true }
+    { passive: false }
+  );
+
+  // 모바일에서 보드 스와이프 중 페이지 스크롤이 발생하지 않게 차단
+  boardEl.addEventListener(
+    "touchmove",
+    (e) => {
+      e.preventDefault();
+    },
+    { passive: false }
   );
 }
 
