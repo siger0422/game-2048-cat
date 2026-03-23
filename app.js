@@ -53,6 +53,8 @@ const overlayText = document.getElementById("overlay-text");
 const legend = document.getElementById("legend");
 const fxLayer = document.getElementById("fx-layer");
 let isBgmPlaying = false;
+let bgmMode = "none";
+let bgmSynth = null;
 let unlockedMilestones = new Set();
 let sfx = null;
 
@@ -249,22 +251,112 @@ function triggerBoardEffect(className, timeout = 260) {
   setTimeout(() => boardEl.classList.remove(className), timeout);
 }
 
+class CuteFallbackBgm {
+  constructor() {
+    this.ctx = null;
+    this.timer = null;
+    this.step = 0;
+    this.isPlaying = false;
+    this.notes = [523.25, 659.25, 783.99, 659.25, 698.46, 783.99, 880.0, 783.99];
+    this.bass = [261.63, 293.66, 329.63, 293.66];
+  }
+
+  async ensureContext() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      this.ctx = new AC();
+    }
+    await this.ctx.resume();
+    return true;
+  }
+
+  tone(freq, when, duration, type, gainValue) {
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, when);
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(gainValue, when + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+    osc.connect(gain).connect(this.ctx.destination);
+    osc.start(when);
+    osc.stop(when + duration + 0.02);
+  }
+
+  tick() {
+    const now = this.ctx.currentTime;
+    const m = this.notes[this.step % this.notes.length];
+    const b = this.bass[this.step % this.bass.length];
+    this.tone(m, now + 0.01, 0.2, "triangle", 0.045);
+    this.tone(b, now + 0.01, 0.25, "sine", 0.03);
+    if (this.step % 2 === 0) this.tone(m * 2, now + 0.11, 0.1, "square", 0.012);
+    this.step++;
+  }
+
+  async play() {
+    const ok = await this.ensureContext();
+    if (!ok) return false;
+    if (this.isPlaying) return true;
+    this.isPlaying = true;
+    this.tick();
+    this.timer = setInterval(() => this.tick(), 300);
+    return true;
+  }
+
+  stop() {
+    this.isPlaying = false;
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  }
+}
+
+function ensureBgmSynth() {
+  if (!bgmSynth) bgmSynth = new CuteFallbackBgm();
+  return bgmSynth;
+}
+
+function stopAllBgm() {
+  bgmAudio.pause();
+  bgmAudio.currentTime = 0;
+  if (bgmSynth) bgmSynth.stop();
+  bgmMode = "none";
+}
+
+async function tryStartAnyBgm() {
+  bgmAudio.volume = 0.35;
+  try {
+    await bgmAudio.play();
+    bgmMode = "audio";
+    return true;
+  } catch (_) {
+    // iOS Safari/Chrome에서 webm 미지원 가능. 합성 BGM으로 폴백.
+  }
+
+  try {
+    const started = await ensureBgmSynth().play();
+    if (started) {
+      bgmMode = "synth";
+      return true;
+    }
+  } catch (_) {
+    // no-op
+  }
+  bgmMode = "none";
+  return false;
+}
+
 async function toggleBgm() {
   if (isBgmPlaying) {
-    bgmAudio.pause();
-    bgmAudio.currentTime = 0;
+    stopAllBgm();
     isBgmPlaying = false;
     syncBgmButton(false);
     return;
   }
 
-  bgmAudio.volume = 0.35;
-  try {
-    await bgmAudio.play();
-    isBgmPlaying = true;
-  } catch (_) {
-    isBgmPlaying = false;
-  }
+  isBgmPlaying = await tryStartAnyBgm();
 
   if (!isBgmPlaying) {
     syncBgmButton(false);
@@ -281,13 +373,7 @@ function syncBgmButton(playing) {
 }
 
 async function startBgmByDefault() {
-  bgmAudio.volume = 0.35;
-  try {
-    await bgmAudio.play();
-    isBgmPlaying = true;
-  } catch (_) {
-    isBgmPlaying = false;
-  }
+  isBgmPlaying = await tryStartAnyBgm();
   syncBgmButton(isBgmPlaying);
 }
 
