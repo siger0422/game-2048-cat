@@ -54,6 +54,7 @@ const legend = document.getElementById("legend");
 const fxLayer = document.getElementById("fx-layer");
 let isBgmPlaying = false;
 let bgmBusy = false;
+let bgmInitPending = false;
 let unlockedMilestones = new Set();
 let sfx = null;
 
@@ -265,6 +266,7 @@ function triggerBoardEffect(className, timeout = 260) {
 
 async function tryStartBgmAudio() {
   bgmAudio.volume = 0.35;
+  bgmAudio.load();
   try {
     await bgmAudio.play();
     return true;
@@ -274,7 +276,7 @@ async function tryStartBgmAudio() {
 }
 
 async function toggleBgm() {
-  if (bgmBusy) return;
+  if (bgmBusy || bgmInitPending) return;
   bgmBusy = true;
 
   if (isBgmPlaying) {
@@ -289,8 +291,8 @@ async function toggleBgm() {
   isBgmPlaying = await tryStartBgmAudio();
 
   if (!isBgmPlaying) {
-    showFx("iPhone은 m4a/mp3 BGM 필요", "over");
-    markBgmUnsupported();
+    showFx("BGM 재생 실패", "over");
+    syncBgmButton(false);
     bgmBusy = false;
     return;
   }
@@ -301,32 +303,63 @@ async function toggleBgm() {
 
 function syncBgmButton(playing) {
   bgmBtn.disabled = false;
-  bgmBtn.textContent = playing ? "BGM 끄기" : "BGM 켜기";
+  bgmBtn.innerHTML = getBgmIconSvg(playing ? "on" : "off");
+  bgmBtn.setAttribute("aria-label", playing ? "BGM 끄기" : "BGM 켜기");
+  bgmBtn.setAttribute("title", playing ? "BGM 끄기" : "BGM 켜기");
   bgmBtn.setAttribute("aria-pressed", playing ? "true" : "false");
 }
 
 function markBgmUnsupported() {
-  bgmBtn.disabled = true;
-  bgmBtn.textContent = "BGM 미지원";
+  bgmBtn.disabled = false;
+  bgmBtn.innerHTML = getBgmIconSvg("mute");
+  bgmBtn.setAttribute("aria-label", "BGM 미지원");
+  bgmBtn.setAttribute("title", "BGM 미지원");
   bgmBtn.setAttribute("aria-pressed", "false");
 }
 
+function getBgmIconSvg(mode) {
+  const baseSpeaker = `
+    <path d="M5 10h4l5-4v12l-5-4H5z" />
+  `;
+  const waveSmall = `<path d="M17 10.5a3 3 0 010 3" />`;
+  const waveBig = `<path d="M19.5 8a6.5 6.5 0 010 8" />`;
+  const cutLine = `<path d="M6 6l14 14" />`;
+
+  let extra = "";
+  if (mode === "on") extra = `${waveSmall}${waveBig}`;
+  if (mode === "off") extra = cutLine;
+  if (mode === "mute") extra = `<path d="M17 10l4 4M21 10l-4 4" />`;
+
+  return `
+    <svg class="icon-bgm icon-bgm--${mode}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      ${baseSpeaker}
+      ${extra}
+    </svg>
+  `;
+}
+
 async function startBgmByDefault() {
+  if (bgmBusy || bgmInitPending) return;
+  bgmInitPending = true;
+
   const hasPlayableType = Boolean(
     bgmAudio.canPlayType("audio/mp4") ||
       bgmAudio.canPlayType("audio/aac") ||
+      bgmAudio.canPlayType("audio/mpeg") ||
       bgmAudio.canPlayType("audio/webm") ||
       bgmAudio.canPlayType("audio/webm; codecs=opus")
   );
   if (!hasPlayableType) {
     isBgmPlaying = false;
     markBgmUnsupported();
+    bgmInitPending = false;
     return;
   }
 
   isBgmPlaying = await tryStartBgmAudio();
   if (isBgmPlaying) syncBgmButton(true);
   else syncBgmButton(false);
+  bgmInitPending = false;
 }
 
 function handleKeydown(e) {
@@ -591,6 +624,17 @@ function loadLocalImage(src) {
   });
 }
 
+async function loadFirstAvailableImage(sources) {
+  for (const src of sources) {
+    try {
+      return await loadLocalImage(src);
+    } catch (_) {
+      // 다음 후보 시도
+    }
+  }
+  throw new Error("image load failed");
+}
+
 function setPostcardFont(ctx, size, weight = 700) {
   ctx.font = `${weight} ${size}px "Poor Story", "Jua", sans-serif`;
 }
@@ -637,14 +681,17 @@ async function downloadScorePostcard() {
   ctx.fillText("야르게임 - 우사기편", 540, 140);
 
   try {
-    const usagi = await loadLocalImage("./assets/usagi-postcard.webp");
+    const usagi = await loadFirstAvailableImage([
+      "./assets/usagi-postcard.png",
+      "./assets/usagi-postcard.webp",
+    ]);
     ctx.drawImage(usagi, 372, 162, 148, 148);
     ctx.drawImage(usagi, 560, 162, 148, 148);
   } catch (_) {
-    // 이미지 실패 시 이모지로 대체
+    // 이미지 실패 시 우사기 이모지로라도 표시
+    setPostcardFont(ctx, 64, 700);
+    ctx.fillText("🐰   🐰", 540, 255);
   }
-  setPostcardFont(ctx, 66, 700);
-  ctx.fillText("🐱  💕", 735, 255);
 
   drawRoundedRect(ctx, 120, 300, 840, 640, 42);
   ctx.fillStyle = "rgba(255,255,255,0.86)";

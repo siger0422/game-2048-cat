@@ -150,6 +150,33 @@ h1 {
   min-height: 36px;
 }
 
+.btn--icon {
+  width: 48px;
+  min-width: 48px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+}
+
+.icon-bgm {
+  width: 26px;
+  height: 26px;
+  stroke: #fff;
+  stroke-width: 2.1;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-bgm--on path:first-child {
+  fill: rgba(255, 255, 255, 0.22);
+}
+
+.btn--icon:hover .icon-bgm--on {
+  animation: pulseIcon 0.8s ease-in-out infinite;
+}
+
 .score-wrap {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -560,6 +587,9 @@ h1 {
     padding: 12px;
     border-radius: 22px;
     max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
 
   .top {
@@ -586,6 +616,16 @@ h1 {
     min-height: 36px;
   }
 
+  .btn--icon {
+    width: 40px;
+    min-width: 40px;
+  }
+
+  .icon-bgm {
+    width: 22px;
+    height: 22px;
+  }
+
   h1 {
     font-size: clamp(18px, 6vw, 24px);
   }
@@ -598,5 +638,33 @@ h1 {
 
   .fx-layer {
     top: 152px;
+  }
+
+  .legend {
+    margin-top: 10px;
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .legend-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px 6px;
+  }
+
+  .legend-char {
+    width: 14px;
+    height: 14px;
+    margin-right: 2px;
+    vertical-align: -2px;
+  }
+}
+
+@keyframes pulseIcon {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
   }
 }
