@@ -2,6 +2,13 @@ const SIZE = 4;
 const TARGET = 2048;
 const SCORE_MILESTONES = [100, 300, 500, 1000, 2048, 3000, 4000];
 const GAME_STATE_KEY = "cat2048StateV1";
+const BGM_PREF_KEY = "cat2048BgmEnabledV2";
+const ASSET_REV = "20260324r2";
+const BGM_SOURCES = [
+  { src: `./assets/bgm.m4a?v=${ASSET_REV}`, type: "audio/mp4" },
+  { src: `./assets/bgm.mp3?v=${ASSET_REV}`, type: "audio/mpeg" },
+  { src: `./assets/bgm.webm?v=${ASSET_REV}`, type: "audio/webm" },
+];
 
 const IMAGE_POOL = {
   usagi:
@@ -43,6 +50,7 @@ const newGameBtn = document.getElementById("new-game-btn");
 const bgmBtn = document.getElementById("bgm-btn");
 const shareBtn = document.getElementById("share-btn");
 const bgmAudio = document.getElementById("bgm-audio");
+const postcardUsagiPreload = document.getElementById("postcard-usagi-preload");
 const retryBtn = document.getElementById("retry-btn");
 const resetConfirm = document.getElementById("reset-confirm");
 const confirmResetBtn = document.getElementById("confirm-reset-btn");
@@ -54,15 +62,17 @@ const legend = document.getElementById("legend");
 const fxLayer = document.getElementById("fx-layer");
 let isBgmPlaying = false;
 let bgmBusy = false;
-let bgmInitPending = false;
 let unlockedMilestones = new Set();
 let sfx = null;
+let postcardUsagiImage = null;
+let bgmUserEnabled = localStorage.getItem(BGM_PREF_KEY) === "1";
 
 function init() {
   bestEl.textContent = best;
   renderLegend();
+  configureBgmSource();
   syncBgmButton(false);
-  startBgmByDefault();
+  preloadPostcardAssets();
   if (!restoreGameState()) {
     startNewGame();
   }
@@ -95,10 +105,13 @@ function bindEvents() {
     startNewGame();
   });
   cancelResetBtn.addEventListener("click", hideResetConfirm);
-  const unlockSfx = () => ensureSfx().unlock();
-  window.addEventListener("pointerdown", unlockSfx, { once: true });
-  window.addEventListener("keydown", unlockSfx, { once: true });
-  window.addEventListener("touchstart", unlockSfx, { once: true, passive: true });
+  const onFirstGesture = () => {
+    void ensureSfx().unlock();
+    void tryRestoreBgmOnFirstGesture();
+  };
+  window.addEventListener("pointerdown", onFirstGesture, { once: true });
+  window.addEventListener("keydown", onFirstGesture, { once: true });
+  window.addEventListener("touchstart", onFirstGesture, { once: true, passive: true });
 
   bgmAudio.addEventListener("play", () => {
     isBgmPlaying = true;
@@ -271,32 +284,52 @@ function triggerBoardEffect(className, timeout = 260) {
 
 async function tryStartBgmAudio() {
   bgmAudio.volume = 0.35;
-  bgmAudio.load();
-  try {
-    await bgmAudio.play();
-    await new Promise((r) => setTimeout(r, 120));
-    return isAudioActuallyPlaying();
-  } catch (_) {
-    return false;
+  bgmAudio.muted = false;
+
+  const candidates = [
+    ...BGM_SOURCES.filter((item) => bgmAudio.canPlayType(item.type)),
+    ...BGM_SOURCES.filter((item) => !bgmAudio.canPlayType(item.type)),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (bgmAudio.src !== new URL(candidate.src, window.location.href).href) {
+        bgmAudio.src = candidate.src;
+        bgmAudio.load();
+      }
+      await bgmAudio.play();
+      const start = bgmAudio.currentTime;
+      await new Promise((r) => setTimeout(r, 320));
+      const playing = !bgmAudio.paused && bgmAudio.currentTime >= start;
+      if (playing) {
+        return true;
+      }
+    } catch (_) {
+      // 다음 후보 시도
+    }
   }
+  return false;
 }
 
 function isAudioActuallyPlaying() {
-  return !bgmAudio.paused && !bgmAudio.ended && bgmAudio.readyState >= 2;
+  return !bgmAudio.paused && !bgmAudio.ended;
 }
 
 async function toggleBgm() {
-  if (bgmBusy || bgmInitPending) return;
+  if (bgmBusy) return;
   bgmBusy = true;
 
   try {
     if (isAudioActuallyPlaying()) {
       bgmAudio.pause();
       bgmAudio.currentTime = 0;
+      setBgmPreference(false);
     } else {
       const started = await tryStartBgmAudio();
       if (!started) {
         showFx("BGM 재생 실패", "over");
+      } else {
+        setBgmPreference(true);
       }
     }
   } finally {
@@ -304,6 +337,21 @@ async function toggleBgm() {
     syncBgmButton(isBgmPlaying);
     bgmBusy = false;
   }
+}
+
+async function tryRestoreBgmOnFirstGesture() {
+  if (!bgmUserEnabled || isAudioActuallyPlaying()) return;
+
+  const started = await tryStartBgmAudio();
+  if (!started) {
+    syncBgmButton(false);
+    setBgmPreference(false);
+  }
+}
+
+function setBgmPreference(enabled) {
+  bgmUserEnabled = enabled;
+  localStorage.setItem(BGM_PREF_KEY, enabled ? "1" : "0");
 }
 
 function syncBgmButton(playing) {
@@ -343,27 +391,27 @@ function getBgmIconSvg(mode) {
   `;
 }
 
-async function startBgmByDefault() {
-  if (bgmBusy || bgmInitPending) return;
-  bgmInitPending = true;
+function configureBgmSource() {
+  const picked = BGM_SOURCES.find((candidate) => bgmAudio.canPlayType(candidate.type));
 
-  const hasPlayableType = Boolean(
-    bgmAudio.canPlayType("audio/mp4") ||
-      bgmAudio.canPlayType("audio/aac") ||
-      bgmAudio.canPlayType("audio/mpeg") ||
-      bgmAudio.canPlayType("audio/webm") ||
-      bgmAudio.canPlayType("audio/webm; codecs=opus")
-  );
-  if (!hasPlayableType) {
-    isBgmPlaying = false;
+  if (picked?.src) {
+    bgmAudio.src = picked.src;
+    bgmAudio.load();
+  } else {
     markBgmUnsupported();
-    bgmInitPending = false;
-    return;
   }
+}
 
-  isBgmPlaying = await tryStartBgmAudio();
-  syncBgmButton(isBgmPlaying);
-  bgmInitPending = false;
+function preloadPostcardAssets() {
+  const preloadUrl = new URL(`./assets/usagi-postcard.png?v=${ASSET_REV}`, window.location.href)
+    .href;
+  loadFirstAvailableImage([postcardUsagiPreload?.src || preloadUrl, preloadUrl])
+    .then((img) => {
+      postcardUsagiImage = img;
+    })
+    .catch(() => {
+      postcardUsagiImage = null;
+    });
 }
 
 function handleKeydown(e) {
@@ -685,10 +733,14 @@ async function downloadScorePostcard() {
   ctx.fillText("야르게임 - 우사기편", 540, 140);
 
   try {
-    const usagi = await loadFirstAvailableImage([
-      "./assets/usagi-postcard.png",
-      "./assets/usagi-postcard.webp",
-    ]);
+    const usagi =
+      postcardUsagiImage ||
+      (await loadFirstAvailableImage([
+        postcardUsagiPreload?.src ||
+          new URL(`./assets/usagi-postcard.png?v=${ASSET_REV}`, window.location.href).href,
+        new URL(`./assets/usagi-postcard.png?v=${ASSET_REV}`, window.location.href).href,
+        new URL(`./assets/usagi-postcard.webp?v=${ASSET_REV}`, window.location.href).href,
+      ]));
     ctx.drawImage(usagi, 372, 162, 148, 148);
     ctx.drawImage(usagi, 560, 162, 148, 148);
   } catch (_) {
