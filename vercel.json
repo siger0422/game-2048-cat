@@ -19,7 +19,17 @@
       ]
     },
     {
+      "source": "/bgm.(m4a|mp3|webm)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
       "source": "/assets/(.*)\\.m4a",
+      "headers": [{ "key": "Content-Type", "value": "audio/mp4" }]
+    },
+    {
+      "source": "/(.*)\\.m4a",
       "headers": [{ "key": "Content-Type", "value": "audio/mp4" }]
     },
     {
@@ -27,8 +37,22 @@
       "headers": [{ "key": "Content-Type", "value": "audio/mpeg" }]
     },
     {
+      "source": "/(.*)\\.mp3",
+      "headers": [{ "key": "Content-Type", "value": "audio/mpeg" }]
+    },
+    {
       "source": "/assets/(.*)\\.webm",
       "headers": [{ "key": "Content-Type", "value": "audio/webm" }]
+    },
+    {
+      "source": "/(.*)\\.webm",
+      "headers": [{ "key": "Content-Type", "value": "audio/webm" }]
+    },
+    {
+      "source": "/(.*)usagi-postcard\\.(png|webp)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
     }
   ]
 }

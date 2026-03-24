@@ -5,6 +5,9 @@ const GAME_STATE_KEY = "cat2048StateV1";
 const BGM_PREF_KEY = "cat2048BgmEnabledV2";
 const ASSET_REV = "20260324r2";
 const BGM_SOURCES = [
+  { src: `./bgm.m4a?v=${ASSET_REV}`, type: "audio/mp4" },
+  { src: `./bgm.mp3?v=${ASSET_REV}`, type: "audio/mpeg" },
+  { src: `./bgm.webm?v=${ASSET_REV}`, type: "audio/webm" },
   { src: `./assets/bgm.m4a?v=${ASSET_REV}`, type: "audio/mp4" },
   { src: `./assets/bgm.mp3?v=${ASSET_REV}`, type: "audio/mpeg" },
   { src: `./assets/bgm.webm?v=${ASSET_REV}`, type: "audio/webm" },
@@ -66,6 +69,7 @@ let unlockedMilestones = new Set();
 let sfx = null;
 let postcardUsagiImage = null;
 let bgmUserEnabled = localStorage.getItem(BGM_PREF_KEY) === "1";
+let bgmErrorToastShown = false;
 
 function init() {
   bestEl.textContent = best;
@@ -128,7 +132,6 @@ function bindEvents() {
   bgmAudio.addEventListener("error", () => {
     isBgmPlaying = false;
     syncBgmButton(false);
-    showFx("BGM 파일 재생 오류", "over");
   });
 
   boardEl.addEventListener(
@@ -327,9 +330,13 @@ async function toggleBgm() {
     } else {
       const started = await tryStartBgmAudio();
       if (!started) {
-        showFx("BGM 재생 실패", "over");
+        if (!bgmErrorToastShown) {
+          showFx("BGM 재생 실패", "over");
+          bgmErrorToastShown = true;
+        }
       } else {
         setBgmPreference(true);
+        bgmErrorToastShown = false;
       }
     }
   } finally {
@@ -403,9 +410,14 @@ function configureBgmSource() {
 }
 
 function preloadPostcardAssets() {
-  const preloadUrl = new URL(`./assets/usagi-postcard.png?v=${ASSET_REV}`, window.location.href)
+  const localPngUrl = new URL(`./usagi-postcard.png?v=${ASSET_REV}`, window.location.href).href;
+  const assetsPngUrl = new URL(`./assets/usagi-postcard.png?v=${ASSET_REV}`, window.location.href)
     .href;
-  loadFirstAvailableImage([postcardUsagiPreload?.src || preloadUrl, preloadUrl])
+  loadFirstAvailableImage([
+    postcardUsagiPreload?.src || localPngUrl,
+    localPngUrl,
+    assetsPngUrl,
+  ])
     .then((img) => {
       postcardUsagiImage = img;
     })
@@ -736,9 +748,10 @@ async function downloadScorePostcard() {
     const usagi =
       postcardUsagiImage ||
       (await loadFirstAvailableImage([
-        postcardUsagiPreload?.src ||
-          new URL(`./assets/usagi-postcard.png?v=${ASSET_REV}`, window.location.href).href,
+        postcardUsagiPreload?.src || new URL(`./usagi-postcard.png?v=${ASSET_REV}`, window.location.href).href,
+        new URL(`./usagi-postcard.png?v=${ASSET_REV}`, window.location.href).href,
         new URL(`./assets/usagi-postcard.png?v=${ASSET_REV}`, window.location.href).href,
+        new URL(`./usagi-postcard.webp?v=${ASSET_REV}`, window.location.href).href,
         new URL(`./assets/usagi-postcard.webp?v=${ASSET_REV}`, window.location.href).href,
       ]));
     ctx.drawImage(usagi, 372, 162, 148, 148);
