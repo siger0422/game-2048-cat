@@ -77,7 +77,7 @@ function renderLegend() {
       ${shown
         .map((n) => {
           const c = getChar(n);
-          return `<span><img class="legend-char" src="${c.img}" alt="${c.name}" referrerpolicy="no-referrer" loading="lazy" /> ${c.name} (${n})</span>`;
+          return `<span class="legend-item"><img class="legend-char" src="${c.img}" alt="${c.name}" referrerpolicy="no-referrer" loading="lazy" /> ${c.name} (${n})</span>`;
         })
         .join("")}
     </div>
@@ -111,6 +111,11 @@ function bindEvents() {
   bgmAudio.addEventListener("ended", () => {
     isBgmPlaying = false;
     syncBgmButton(false);
+  });
+  bgmAudio.addEventListener("error", () => {
+    isBgmPlaying = false;
+    syncBgmButton(false);
+    showFx("BGM 파일 재생 오류", "over");
   });
 
   boardEl.addEventListener(
@@ -269,36 +274,36 @@ async function tryStartBgmAudio() {
   bgmAudio.load();
   try {
     await bgmAudio.play();
-    return true;
+    await new Promise((r) => setTimeout(r, 120));
+    return isAudioActuallyPlaying();
   } catch (_) {
     return false;
   }
+}
+
+function isAudioActuallyPlaying() {
+  return !bgmAudio.paused && !bgmAudio.ended && bgmAudio.readyState >= 2;
 }
 
 async function toggleBgm() {
   if (bgmBusy || bgmInitPending) return;
   bgmBusy = true;
 
-  if (isBgmPlaying) {
-    bgmAudio.pause();
-    bgmAudio.currentTime = 0;
-    isBgmPlaying = false;
-    syncBgmButton(false);
+  try {
+    if (isAudioActuallyPlaying()) {
+      bgmAudio.pause();
+      bgmAudio.currentTime = 0;
+    } else {
+      const started = await tryStartBgmAudio();
+      if (!started) {
+        showFx("BGM 재생 실패", "over");
+      }
+    }
+  } finally {
+    isBgmPlaying = isAudioActuallyPlaying();
+    syncBgmButton(isBgmPlaying);
     bgmBusy = false;
-    return;
   }
-
-  isBgmPlaying = await tryStartBgmAudio();
-
-  if (!isBgmPlaying) {
-    showFx("BGM 재생 실패", "over");
-    syncBgmButton(false);
-    bgmBusy = false;
-    return;
-  }
-
-  syncBgmButton(true);
-  bgmBusy = false;
 }
 
 function syncBgmButton(playing) {
@@ -357,8 +362,7 @@ async function startBgmByDefault() {
   }
 
   isBgmPlaying = await tryStartBgmAudio();
-  if (isBgmPlaying) syncBgmButton(true);
-  else syncBgmButton(false);
+  syncBgmButton(isBgmPlaying);
   bgmInitPending = false;
 }
 

@@ -423,6 +423,10 @@ h1 {
   gap: 6px 8px;
 }
 
+.legend-item {
+  white-space: nowrap;
+}
+
 .legend-char {
   width: 18px;
   height: 18px;
@@ -647,8 +651,19 @@ h1 {
   }
 
   .legend-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 4px 6px;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .legend-item {
+    flex: 0 0 auto;
+    background: #fff9ff;
+    border: 1px dashed #f2b9cf;
+    border-radius: 999px;
+    padding: 3px 8px;
   }
 
   .legend-char {
