@@ -3,14 +3,12 @@ const TARGET = 2048;
 const SCORE_MILESTONES = [100, 300, 500, 1000, 2048, 3000, 4000];
 const GAME_STATE_KEY = "cat2048StateV1";
 const BGM_PREF_KEY = "cat2048BgmEnabledV2";
-const ASSET_REV = "20260324r2";
+const ASSET_REV = "20260324r3";
 const BGM_SOURCES = [
   { src: `./bgm.m4a?v=${ASSET_REV}`, type: "audio/mp4" },
   { src: `./bgm.mp3?v=${ASSET_REV}`, type: "audio/mpeg" },
-  { src: `./bgm.webm?v=${ASSET_REV}`, type: "audio/webm" },
   { src: `./assets/bgm.m4a?v=${ASSET_REV}`, type: "audio/mp4" },
   { src: `./assets/bgm.mp3?v=${ASSET_REV}`, type: "audio/mpeg" },
-  { src: `./assets/bgm.webm?v=${ASSET_REV}`, type: "audio/webm" },
 ];
 
 const IMAGE_POOL = {
