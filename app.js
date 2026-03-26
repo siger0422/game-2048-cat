@@ -4,7 +4,6 @@ const SCORE_MILESTONES = [100, 300, 500, 1000, 2048, 3000, 4000];
 const GAME_STATE_KEY = "cat2048StateV1";
 const BGM_PREF_KEY = "cat2048BgmEnabledV2";
 const ASSET_REV = "20260324r3";
-const GA_MEASUREMENT_ID = "G-6PBN83RFDG";
 const BGM_SOURCES = [
   { src: `./bgm.m4a?v=${ASSET_REV}`, type: "audio/mp4" },
   { src: `./bgm.mp3?v=${ASSET_REV}`, type: "audio/mpeg" },
@@ -69,15 +68,6 @@ let sfx = null;
 let postcardUsagiImage = null;
 let bgmUserEnabled = localStorage.getItem(BGM_PREF_KEY) === "1";
 let bgmErrorToastShown = false;
-
-window.dataLayer = window.dataLayer || [];
-window.gtag =
-  window.gtag ||
-  function gtag() {
-    window.dataLayer.push(arguments);
-  };
-window.gtag("js", new Date());
-window.gtag("config", GA_MEASUREMENT_ID);
 
 function init() {
   bestEl.textContent = best;
